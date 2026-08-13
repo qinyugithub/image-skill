@@ -1,0 +1,4 @@
+interface:
+  display_name: "水彩漫画生成器"
+  short_description: "在对话中稳定生成同系列水彩单幅漫画并准确排版中文文案"
+  default_prompt: "使用 $chat-comic-generator，根据我提供的画面内容和底部文案生成同风格漫画。"
