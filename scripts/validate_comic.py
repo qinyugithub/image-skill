@@ -59,6 +59,25 @@ def main() -> int:
     if manifest.get("output_sha256") != sha256(image_path):
         errors.append("最终图片哈希与合成清单不一致，文件可能在合成后被修改")
 
+    caption_layout = manifest.get("caption_layout", {})
+    illustration_bottom_y = caption_layout.get("illustration_bottom_y")
+    safe_caption_start_y = caption_layout.get("safe_caption_start_y")
+    rendered_lines = caption_layout.get("lines", [])
+    rendered_text = "".join(line.get("text", "") for line in rendered_lines)
+    source_text = "".join(job.get("caption_lines", []))
+    if rendered_text != source_text:
+        errors.append("自动换行后的文案与用户原文不一致")
+    if isinstance(illustration_bottom_y, int) and isinstance(safe_caption_start_y, int):
+        if safe_caption_start_y - illustration_bottom_y < 30:
+            errors.append("文案与插画的安全间距不足 30 像素")
+    if rendered_lines:
+        line_tops = [line.get("y", 0) for line in rendered_lines]
+        line_bottoms = [line.get("y", 0) + line.get("height", 0) for line in rendered_lines]
+        if any(bottom > 1190 for bottom in line_bottoms):
+            errors.append("至少一行文案过低，超出安全排版区域")
+        if any(line_tops[index + 1] < line_bottoms[index] for index in range(len(rendered_lines) - 1)):
+            errors.append("相邻文案行发生重叠")
+
     with Image.open(image_path) as image:
         rgb = image.convert("RGB")
         if rgb.size != (800, 1200):
@@ -92,6 +111,9 @@ def main() -> int:
             "hash_matches_manifest": manifest.get("output_sha256") == sha256(image_path),
             "upper_dark_ratio": round(upper_dark, 6),
             "caption_dark_ratio": round(caption_dark, 6),
+            "illustration_bottom_y": illustration_bottom_y,
+            "safe_caption_start_y": safe_caption_start_y,
+            "rendered_line_count": len(rendered_lines),
         },
         "errors": errors,
         "warnings": warnings,

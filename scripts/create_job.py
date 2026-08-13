@@ -74,7 +74,8 @@ Avoid: photorealism, 3D, glossy anime rendering, vector-clean lines, dense backg
 def main() -> int:
     parser = argparse.ArgumentParser(description="创建无 API 的对话式漫画任务")
     parser.add_argument("--scene", required=True, help="画面内容")
-    parser.add_argument("--line", action="append", required=True, dest="lines", help="底部文案的一行，可重复 2～5 次")
+    parser.add_argument("--line", action="append", required=True, dest="lines", help="底部文案原文；有明确换行时可重复，未指定换行时整段传入一次")
+    parser.add_argument("--preserve-line-breaks", action="store_true", help="用户明确指定换行时保留行边界；过长行仍可继续拆分")
     parser.add_argument("--profile", choices=sorted(PROFILES), default="daily")
     parser.add_argument("--mood", default="克制、生活化、轻微冷幽默")
     parser.add_argument("--accent", default="浅蓝色")
@@ -85,7 +86,7 @@ def main() -> int:
 
     lines = [line.strip() for line in args.lines if line.strip()]
     if not 1 <= len(lines) <= 5:
-        parser.error("文案必须为 1～5 行，推荐 2～5 行")
+        parser.error("文案原文必须为 1～5 段；合成时会在不改字的前提下自动扩展到最多 5 行")
 
     root = project_root()
     output_root = (args.output_root or root / "output" / "comics" / "jobs").resolve()
@@ -109,6 +110,7 @@ def main() -> int:
         "scene": args.scene.strip(),
         "caption_lines": lines,
         "caption_text": "\n".join(lines),
+        "preserve_caption_line_breaks": args.preserve_line_breaks,
         "profile": args.profile,
         "mood": args.mood.strip(),
         "accent": args.accent.strip(),
@@ -119,7 +121,7 @@ def main() -> int:
             "height": 1200,
             "illustration_max_height_ratio": 0.52,
             "caption_start_y": 675,
-            "caption_end_y": 1065,
+            "caption_end_y": 1190,
             "font_path": "",
         },
         "paths": {

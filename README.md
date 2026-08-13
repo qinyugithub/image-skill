@@ -9,6 +9,9 @@
 - 不需要 OpenAI API Key，直接使用 ChatGPT/Codex 内置图片生成能力。
 - 参考仓库内置样图，稳定生成白底、黑色手绘墨线、透明水彩风格的单幅漫画。
 - 插画生成与文字排版分离，避免图片模型写错中文。
+- 默认使用内置 Ma Shan Zheng（马善政）排版中文，使用适度加粗的书写笔画。
+- 优先使用较大字号；一行放不下时自动增加到最多 5 行，使用紧凑行距并利用底部安全区域，同时避免拆开常用词组。
+- 按字体基线渲染整行文字，使逗号、句号等标点自然位于每行靠下位置。
 - 保留用户原始文案，只调整换行，不擅自改写字词或标点。
 - 自动保存任务定义、无字插画、最终成品和校验记录。
 - 支持 `daily`、`poetic`、`metaphor`、`vivid` 四种风格组。
@@ -64,7 +67,7 @@ git clone https://github.com/qinyugithub/image-skill.git "$env:USERPROFILE\.code
 1. 根据内容选择合适的风格组。
 2. 从对应风格组中选取 3 张参考图。
 3. 生成下方留白的无字水彩插画。
-4. 按语义拆分底部文案，但不修改原文。
+4. 优先在句号等语义边界处自动换行，以更大的字号排版，但不修改原文。
 5. 将中文准确排入留白区域。
 6. 检查图片尺寸、文字、留白和文件完整性。
 7. 在对话中展示最终图片并提供下载路径。
@@ -100,7 +103,7 @@ git clone https://github.com/qinyugithub/image-skill.git "$env:USERPROFILE\.code
 不要出现：其他人物、文字、Logo、水印
 ```
 
-如果你已经手动分行，Skill 会保留这些换行。如果只提供一整段文案，Skill 会按语义自动分成 2～5 行。
+如果你已经手动分行，Skill 会明确标记并保留这些换行；某一行仍然过长时可继续拆分。如果只提供一整段文案，Skill 会优先保持较大的字号，并可重新均衡整段原文，按语义自动分成最多 5 行。
 
 ## 风格组说明
 
@@ -131,6 +134,8 @@ output/comics/jobs/<时间>-<任务标识>/
 - `illustration.png`：未加入中文的原始插画。
 - `final.png`：最终的 800×1200 漫画。
 - `final.manifest.json`：字体、排版、图片哈希等校验记录。
+
+默认字体文件位于 `assets/fonts/MaShanZheng-Regular.ttf`，来源于 Google Fonts，并按同目录 `MaShanZheng-OFL.txt` 中的 SIL Open Font License 1.1 分发。仍可通过 `--font`、`COMIC_FONT_PATH` 或任务字体设置覆盖默认字体。
 
 生成历史默认保留，方便之后只修改文案排版或重新生成插画。
 
