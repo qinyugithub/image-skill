@@ -1,0 +1,44 @@
+assets/fonts/MaShanZheng-OFL.txt
+  s_bd6b89d6a21a29::t_7d80ec9147446d 1-93
+scripts/validate_comic.py
+  s_bd6b89d6a21a29::t_9bcd21e0f74f88 76
+  s_bd6b89d6a21a29::t_58c910bffbee4a 65-69,114-116
+  s_bd6b89d6a21a29::t_bb797364b5cabe 62-64,70-75,77-79
+scripts/create_job.py
+  s_bd6b89d6a21a29::t_9bcd21e0f74f88 124
+  s_bd6b89d6a21a29::t_58c910bffbee4a 77-78,113
+  s_bd6b89d6a21a29::t_073af277ab1d85 89
+scripts/compose_comic.py
+  s_bd6b89d6a21a29::t_bd45eb2053c150 258-259,262,279
+  s_bd6b89d6a21a29::t_7746e0e11f23c0 42,47,59-61,265
+  s_bd6b89d6a21a29::t_073af277ab1d85 18,83-85,87-101,108-124
+  s_bd6b89d6a21a29::t_6f0b5b939bc419 13-17,65-82,125-140,142-144,146-154,204-207,213,223-226,280
+  s_bd6b89d6a21a29::t_9bcd21e0f74f88 19-20,102-107
+  s_bd6b89d6a21a29::t_9d28e172c99b42 62-64,155,157-158,160-162,167,170-171,178-203,209,212,214-222,227,266
+  s_bd6b89d6a21a29::t_3a7bd5de59dfb9 141,145
+SKILL.md
+  s_bd6b89d6a21a29::t_a67f941dc93e81 24
+  s_bd6b89d6a21a29::t_58c910bffbee4a 30
+  s_bd6b89d6a21a29::t_7746e0e11f23c0 78
+README.md
+  s_bd6b89d6a21a29::t_58c910bffbee4a 106
+  s_bd6b89d6a21a29::t_7746e0e11f23c0 12-13,138
+  s_bd6b89d6a21a29::t_9d28e172c99b42 14
+  s_bd6b89d6a21a29::t_a67f941dc93e81 70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10",
+  "base_commit_sha": "4534f32ce761248d93706fb0912da2bf5dd9d409",
+  "prompts": {},
+  "sessions": {
+    "s_bd6b89d6a21a29": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ff9f0-c5e1-7990-8b00-52e70e1ab949",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "qinyu <qinyu@wedobest.com.cn>"
+    }
+  }
+}
