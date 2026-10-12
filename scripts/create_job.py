@@ -9,6 +9,8 @@ import re
 from datetime import datetime
 from pathlib import Path
 
+from caption_text import caption_semantic_units, normalized_caption_text
+
 
 PROFILES = {
     "daily": [
@@ -33,7 +35,7 @@ PROFILES = {
     ],
 }
 
-PROMPT_VERSION = "chat-comic-v1"
+PROMPT_VERSION = "chat-comic-v2"
 
 
 def skill_root() -> Path:
@@ -74,8 +76,8 @@ Avoid: photorealism, 3D, glossy anime rendering, vector-clean lines, dense backg
 def main() -> int:
     parser = argparse.ArgumentParser(description="创建无 API 的对话式漫画任务")
     parser.add_argument("--scene", required=True, help="画面内容")
-    parser.add_argument("--line", action="append", required=True, dest="lines", help="底部文案原文；有明确换行时可重复，未指定换行时整段传入一次")
-    parser.add_argument("--preserve-line-breaks", action="store_true", help="用户明确指定换行时保留行边界；过长行仍可继续拆分")
+    parser.add_argument("--line", action="append", required=True, dest="lines", help="底部文案原文；可重复传入，标点会被移除，换行仅作为语义提示")
+    parser.add_argument("--preserve-line-breaks", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--profile", choices=sorted(PROFILES), default="daily")
     parser.add_argument("--mood", default="克制、生活化、轻微冷幽默")
     parser.add_argument("--accent", default="浅蓝色")
@@ -84,9 +86,13 @@ def main() -> int:
     parser.add_argument("--output-root", type=Path)
     args = parser.parse_args()
 
-    lines = [line.strip() for line in args.lines if line.strip()]
-    if not 1 <= len(lines) <= 5:
-        parser.error("文案原文必须为 1～5 段；合成时会在不改字的前提下自动扩展到最多 5 行")
+    source_lines = [line.strip() for line in args.lines if line.strip()]
+    if not 1 <= len(source_lines) <= 5:
+        parser.error("文案原文必须为 1～5 段；标点会被移除，并按语义自动排成最多 5 行")
+    semantic_units = caption_semantic_units(source_lines)
+    caption_text = normalized_caption_text(source_lines)
+    if not caption_text:
+        parser.error("去除标点后文案不能为空")
 
     root = project_root()
     output_root = (args.output_root or root / "output" / "comics" / "jobs").resolve()
@@ -104,13 +110,20 @@ def main() -> int:
         raise FileNotFoundError("缺少风格参考图：" + "；".join(missing))
 
     data = {
-        "schema_version": 1,
+        "schema_version": 2,
         "prompt_version": PROMPT_VERSION,
         "created_at": datetime.now().astimezone().isoformat(timespec="seconds"),
         "scene": args.scene.strip(),
-        "caption_lines": lines,
-        "caption_text": "\n".join(lines),
-        "preserve_caption_line_breaks": args.preserve_line_breaks,
+        "caption_source_lines": source_lines,
+        "caption_source_text": "\n".join(source_lines),
+        "caption_semantic_units": semantic_units,
+        "caption_lines": [caption_text],
+        "caption_text": caption_text,
+        "caption_policy": {
+            "punctuation": "remove",
+            "line_breaks": "semantic-auto",
+        },
+        "preserve_caption_line_breaks": False,
         "profile": args.profile,
         "mood": args.mood.strip(),
         "accent": args.accent.strip(),
