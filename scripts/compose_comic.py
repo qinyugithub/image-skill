@@ -12,12 +12,16 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
+from caption_text import caption_semantic_units, normalized_caption_text
 
-SENTENCE_ENDINGS = "。！？；"
+
 CLOSING_PUNCTUATION = "，。！？；：、）》】」』…"
 OPENING_PUNCTUATION = "（《【「『"
 PREFERRED_LINE_STARTS = "能会也就才而但却让把被给与和认"
-PROTECTED_PAIRS = {"一天", "一年", "高估", "低估", "改变", "认真", "坚持", "带来"}
+PROTECTED_PAIRS = {
+    "一天", "一年", "一定", "努力", "马上", "结果", "摸鱼", "通常", "立刻",
+    "高估", "低估", "改变", "认真", "坚持", "带来", "没关", "关系", "别把", "把自", "自己",
+}
 
 
 def sha256(path: Path) -> str:
@@ -68,19 +72,13 @@ def line_metrics(font_path: Path, text: str, size: int) -> tuple[int, int, tuple
     return max(1, box[2] - box[0]), max(1, box[3] - box[1]), box
 
 
-def split_sentences(text: str) -> list[str]:
-    segments: list[str] = []
-    start = 0
-    for index, character in enumerate(text):
-        if character in SENTENCE_ENDINGS:
-            segments.append(text[start:index + 1])
-            start = index + 1
-    if start < len(text):
-        segments.append(text[start:])
-    return [segment for segment in segments if segment]
-
-
-def wrap_segment(font_path: Path, text: str, size: int, maximum_width: int) -> list[str]:
+def wrap_segment(
+    font_path: Path,
+    text: str,
+    size: int,
+    maximum_width: int,
+    preferred_breaks: set[int] | None = None,
+) -> list[str]:
     if line_metrics(font_path, text, size)[0] <= maximum_width:
         return [text]
 
@@ -111,7 +109,9 @@ def wrap_segment(font_path: Path, text: str, size: int, maximum_width: int) -> l
                     part_cost = (widths[(start, end)] - target_width) ** 2
                     if visible_characters <= 2:
                         part_cost += maximum_width ** 2
-                    if end < len(text) and text[end] in PREFERRED_LINE_STARTS:
+                    if end < len(text) and preferred_breaks and end in preferred_breaks:
+                        part_cost -= maximum_width ** 2 * 0.12
+                    elif end < len(text) and text[end] in PREFERRED_LINE_STARTS:
                         part_cost -= maximum_width ** 2 * 0.06
                     key = (used + 1, end)
                     candidate = (cost + part_cost, parts + [part])
@@ -124,15 +124,19 @@ def wrap_segment(font_path: Path, text: str, size: int, maximum_width: int) -> l
 
 
 def wrap_caption(font_path: Path, source_lines: list[str], size: int, maximum_width: int) -> list[str]:
-    wrapped: list[str] = []
+    semantic_lines: list[str] = []
     for source_line in source_lines:
-        clauses = split_sentences(source_line)
-        if len(clauses) == 1 and line_metrics(font_path, source_line, size)[0] <= maximum_width:
-            wrapped.append(source_line)
-            continue
-        for clause in clauses:
-            wrapped.extend(wrap_segment(font_path, clause, size, maximum_width))
-    return wrapped
+        semantic_lines.extend(wrap_segment(font_path, source_line, size, maximum_width))
+    if len(semantic_lines) <= 5:
+        return semantic_lines
+
+    text = "".join(source_lines)
+    preferred_breaks: set[int] = set()
+    offset = 0
+    for source_line in source_lines[:-1]:
+        offset += len(source_line)
+        preferred_breaks.add(offset)
+    return wrap_segment(font_path, text, size, maximum_width, preferred_breaks)
 
 
 def fit_caption(font_path: Path, lines: list[str], start_y: int, end_y: int) -> dict:
@@ -240,9 +244,11 @@ def main() -> int:
     input_path = (args.input or Path(job["paths"]["illustration"])).resolve()
     output_path = (args.output or Path(job["paths"]["final"])).resolve()
     manifest_path = output_path.with_name(output_path.stem + ".manifest.json")
-    lines = job.get("caption_lines", [])
-    if not 1 <= len(lines) <= 5 or any(not line for line in lines):
-        raise ValueError("job.json 中的 caption_lines 必须包含 1～5 个非空字符串")
+    source_lines = job.get("caption_source_lines") or job.get("caption_lines", [])
+    semantic_units = caption_semantic_units(source_lines)
+    caption_text = normalized_caption_text(source_lines)
+    if not semantic_units or not caption_text:
+        raise ValueError("job.json 中的文案去除标点后不能为空")
     if not input_path.is_file():
         raise FileNotFoundError(f"找不到无字插画：{input_path}")
 
@@ -256,10 +262,9 @@ def main() -> int:
     canvas = ImageOps.fit(source, (width, height), method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
     font_path = resolve_font(job, args.font)
     illustration_bottom_y = find_illustration_bottom(canvas)
-    layout_lines = lines if job.get("preserve_caption_line_breaks", False) else ["".join(lines)]
     caption_layout = draw_caption(
         canvas,
-        layout_lines,
+        semantic_units,
         font_path,
         int(layout.get("caption_start_y", 675)),
         max(1190, int(layout.get("caption_end_y", 1190))),
@@ -269,14 +274,20 @@ def main() -> int:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     canvas.save(output_path, format="PNG", optimize=True)
     manifest = {
-        "schema_version": 1,
+        "schema_version": 2,
         "created_at": datetime.now().astimezone().isoformat(timespec="seconds"),
         "job": str(job_path),
         "prompt_version": job.get("prompt_version"),
         "profile": job.get("profile"),
-        "caption_lines": lines,
-        "caption_text": "\n".join(lines),
-        "preserve_caption_line_breaks": job.get("preserve_caption_line_breaks", False),
+        "caption_source_lines": source_lines,
+        "caption_semantic_units": semantic_units,
+        "caption_lines": [caption_text],
+        "caption_text": caption_text,
+        "caption_policy": {
+            "punctuation": "remove",
+            "line_breaks": "semantic-auto",
+        },
+        "preserve_caption_line_breaks": False,
         "rendered_caption_lines": [line["text"] for line in caption_layout["lines"]],
         "font": str(font_path),
         "caption_layout": caption_layout,
