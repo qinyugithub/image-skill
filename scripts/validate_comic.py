@@ -10,6 +10,8 @@ from pathlib import Path
 
 from PIL import Image, ImageStat
 
+from caption_text import contains_punctuation, normalized_caption_text
+
 
 def sha256(path: Path) -> str:
     digest = hashlib.sha256()
@@ -54,8 +56,10 @@ def main() -> int:
         return 1
 
     manifest = read_json(manifest_path)
-    if manifest.get("caption_lines") != job.get("caption_lines"):
-        errors.append("合成清单中的文案与 job.json 不一致")
+    source_lines = job.get("caption_source_lines") or job.get("caption_lines", [])
+    expected_text = normalized_caption_text(source_lines)
+    if manifest.get("caption_text") != expected_text:
+        errors.append("合成清单中的去标点文案与 job.json 不一致")
     if manifest.get("output_sha256") != sha256(image_path):
         errors.append("最终图片哈希与合成清单不一致，文件可能在合成后被修改")
 
@@ -64,9 +68,10 @@ def main() -> int:
     safe_caption_start_y = caption_layout.get("safe_caption_start_y")
     rendered_lines = caption_layout.get("lines", [])
     rendered_text = "".join(line.get("text", "") for line in rendered_lines)
-    source_text = "".join(job.get("caption_lines", []))
-    if rendered_text != source_text:
-        errors.append("自动换行后的文案与用户原文不一致")
+    if rendered_text != expected_text:
+        errors.append("按语义换行后的文案与去标点原文不一致")
+    if contains_punctuation(rendered_text):
+        errors.append("底部文案仍包含标点符号")
     if isinstance(illustration_bottom_y, int) and isinstance(safe_caption_start_y, int):
         if safe_caption_start_y - illustration_bottom_y < 30:
             errors.append("文案与插画的安全间距不足 30 像素")
@@ -105,7 +110,8 @@ def main() -> int:
     result = {
         "ok": not errors,
         "image": str(image_path),
-        "caption_lines": job.get("caption_lines"),
+        "caption_lines": manifest.get("rendered_caption_lines"),
+        "caption_text": expected_text,
         "checks": {
             "size": "800x1200",
             "hash_matches_manifest": manifest.get("output_sha256") == sha256(image_path),
